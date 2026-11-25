@@ -95,13 +95,15 @@ fun LoginFreeScreen(
             }
         }
 
-        val (title, detail) = resultText(state)
-        ResultCard(title = title, detail = detail)
-
+        // Result card scrolls too, error texts can be long
         LazyColumn(
             modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
+            item {
+                val (title, detail) = resultText(state)
+                ResultCard(title = title, detail = detail)
+            }
             if (state.tokenItems.isEmpty()) {
                 item {
                     SolutionInfo(
