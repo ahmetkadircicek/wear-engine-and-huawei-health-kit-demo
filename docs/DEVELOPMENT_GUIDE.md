@@ -209,9 +209,12 @@ Authorization: Bearer <access token>
   is far in the past.
 - Results come in pages; `ActivityRecordsApi` follows the cursor.
 - **Regional sites.** A token only works on the site its HUAWEI ID belongs to. Another site
-  answers 403 with code 121001 ("site cross"). A European account, for example, lives on
-  `health-api.cloud.huawei.eu`. `ActivityRecordsApi` tries the known hosts, remembers the
-  one that answers (`ApiSiteStore.kt`), and `healthkit.apiHost` pins it if you know it.
+  answers 403 with code 121001 ("site cross") and puts the right address in the `Location`
+  response header, for example `https://health-api.cloud.huawei.eu/healthkit/v2/...`. The
+  app sends the request again to that host once, and only to that host, as the Health Kit
+  developer agreement asks (`api/SiteCross.kt`). It remembers the host (`ApiSiteStore.kt`);
+  `healthkit.apiHost` sets the first host to try. The backend does the same per call
+  (`backend/src/health-kit.js`), since its users can be on different sites.
 - `WorkoutType.kt` turns the `activityType` number into a name.
 
 ---
@@ -327,7 +330,7 @@ watch or band that syncs to Huawei Health.
 | --- | --- |
 | `invalid redirect_uri` (1101, 20022) | `healthkit.redirectUri` is not exactly the registered value. |
 | `redirect_uri not registered` (1101, 20023) in Huawei Health | Add Huawei's fixed callback URL to the app (section 2.3). |
-| 403 with code 121001 | Wrong regional site. Leave `healthkit.apiHost` empty or set the right host. |
+| 403 with code 121001 | Wrong regional site. The app follows the `Location` header; if the response has none, check the token and `healthkit.apiHost`. |
 | 403 "The query time is out of range" | The window starts before the authorization. Use a shorter window or a history scope. |
 | Empty workout list | The Health Kit switch in Huawei Health is off (section 4.2). |
 | 1203 on token refresh | The refresh token expired or was revoked. Authorize again. |

@@ -170,6 +170,11 @@ android {
         jvmTarget = "11"
     }
 
+    // android.util.Log returns defaults in unit tests
+    testOptions {
+        unitTests.isReturnDefaultValues = true
+    }
+
     buildFeatures {
         compose = true
         buildConfig = true
@@ -192,4 +197,7 @@ dependencies {
     implementation(libs.huawei.hms.push)
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.messaging)
+
+    testImplementation(libs.junit)
+    testImplementation(libs.kotlinx.coroutines.test)
 }

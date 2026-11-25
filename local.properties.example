@@ -28,7 +28,8 @@ healthkit.redirectUri=
 healthkit.loginFreeAppId=
 # Health Kit Cloud is split into regional sites and a token only works on the site its
 # HUAWEI ID belongs to; another site answers 403 with code 121001, "request forbidden due
-# to site cross". Leave empty to let the app find the site and remember it.
+# to site cross" with the right site in the Location header, which the app follows.
+# Leave empty to start on health-api.cloud.huawei.com.
 healthkit.apiHost=
 # Scheme Secret that AppGallery Connect gives you for the Scheme URL. Method 2 only.
 healthkit.schemeSecret=
