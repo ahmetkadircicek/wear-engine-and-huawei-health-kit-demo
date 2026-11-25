@@ -11,6 +11,14 @@ phone app  ->  Huawei Health app  ->  code  ->  access token  ->  Health Kit Clo
 watch  ->  Huawei Health app  ->  Huawei cloud  ->  backend  ->  push to the phone app
 ```
 
+## Preview
+
+| Start | Token received | Workouts |
+| --- | --- | --- |
+| ![Start](screenshots/preview_01.png) | ![Token received](screenshots/preview_02.png) | ![Workouts](screenshots/preview_03.png) |
+
+Token values in the screenshots are replaced with examples.
+
 The full walkthrough, from the console setup to production notes, is in
 **[docs/DEVELOPMENT_GUIDE.md](docs/DEVELOPMENT_GUIDE.md)**.
 
