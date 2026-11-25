@@ -8,9 +8,19 @@
 # the signing certificate's SHA-256. Leave empty for com.example.wearhealthdemo.
 app.applicationId=
 
+# Wear Engine app ID from AppGallery Connect: the App ID of this Android app. It is also
+# written into the manifest as com.huawei.hms.client.appid.
+wearengine.appId=
+# Peer (watch app) credentials. Lite watches (GT/Fit series) and smart watches (Watch 3/4/5)
+# run different watch apps, so each has its own package name and fingerprint. The switch in
+# the top right corner of the Wear Engine tab picks which pair is used.
+wearengine.lite.peerPackage=
+wearengine.lite.peerFingerprint=
+wearengine.smart.peerPackage=
+wearengine.smart.peerFingerprint=
+
 # Huawei Health Kit Cloud
-# App ID from AppGallery Connect. Used as client_id, as the SDK clientId and, when
-# healthkit.loginFreeAppId is empty, as the HMS app ID in the manifest.
+# App ID from AppGallery Connect. Used as client_id and as the SDK clientId.
 healthkit.clientId=
 # App secret. Only Method 1 needs it. A production app keeps it on its own backend.
 healthkit.clientSecret=

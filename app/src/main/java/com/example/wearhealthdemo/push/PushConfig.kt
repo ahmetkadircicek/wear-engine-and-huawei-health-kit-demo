@@ -10,7 +10,7 @@ enum class PushProvider(val wireName: String) {
 
 object PushConfig {
     val backendBaseUrl: String = BuildConfig.BACKEND_BASE_URL.trimEnd('/')
-    val hmsAppId: String = HealthKitConfig.loginFreeAppId
+    val hmsAppId: String = BuildConfig.WEAR_ENGINE_APP_ID.ifBlank { HealthKitConfig.loginFreeAppId }
 
     val isConfigured: Boolean get() = backendBaseUrl.isNotBlank()
 

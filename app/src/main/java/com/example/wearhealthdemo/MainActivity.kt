@@ -9,35 +9,46 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.lifecycle.ViewModelProvider
 import com.example.wearhealthdemo.healthkit.HealthKitClient
+import com.example.wearhealthdemo.managers.AuthManager
+import com.example.wearhealthdemo.managers.DeviceManager
+import com.example.wearhealthdemo.managers.P2pManager
+import com.example.wearhealthdemo.managers.WatchTypeStore
 import com.example.wearhealthdemo.push.WorkoutSubscriptions
-import com.example.wearhealthdemo.ui.LoginFreeApp
+import com.example.wearhealthdemo.ui.WearEngineApp
 import com.example.wearhealthdemo.ui.theme.LoginFreeTheme
 import com.example.wearhealthdemo.viewmodels.MainViewModel
 import com.example.wearhealthdemo.viewmodels.MainViewModelFactory
 
 class MainActivity : ComponentActivity() {
 
+    private lateinit var p2pManager: P2pManager
     private lateinit var viewModel: MainViewModel
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // The screen is always dark, so keep light bar icons
+        // The screens are always dark, so keep light bar icons
         enableEdgeToEdge(
             statusBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
             navigationBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
         )
 
+        p2pManager = P2pManager(this)
+
         viewModel = ViewModelProvider(
             this,
             MainViewModelFactory(
+                authManager = AuthManager(this),
+                deviceManager = DeviceManager(this),
+                p2pManager = p2pManager,
                 healthKitClient = HealthKitClient(this),
+                watchTypeStore = WatchTypeStore(this),
                 workoutSubscriptions = WorkoutSubscriptions(this),
             ),
         )[MainViewModel::class.java]
 
         setContent {
             LoginFreeTheme {
-                LoginFreeApp(viewModel = viewModel)
+                WearEngineApp(viewModel = viewModel)
             }
         }
 
@@ -55,5 +66,11 @@ class MainActivity : ComponentActivity() {
         @Suppress("DEPRECATION")
         super.onActivityResult(requestCode, resultCode, data)
         viewModel.handleAuthorizationActivityResult(this, requestCode, resultCode, data)
+    }
+
+    override fun onDestroy() {
+        viewModel.sendAppDestroy(if (isFinishing) "user closed the app" else "activity destroyed")
+        p2pManager.unregisterReceiver()
+        super.onDestroy()
     }
 }
