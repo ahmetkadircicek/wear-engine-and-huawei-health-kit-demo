@@ -31,19 +31,13 @@ val knownSecretKeys = setOf(
     "healthkit.schemeSecret",
     "healthkit.authMethod",
     "healthkit.historyWindow",
-    "wearengine.appId",
     "backend.baseUrl",
-    "wearengine.lite.peerPackage",
-    "wearengine.lite.peerFingerprint",
-    "wearengine.smart.peerPackage",
-    "wearengine.smart.peerFingerprint",
 )
 localProperties.keys
     .map { it.toString() }
     .filter { key ->
         key !in knownSecretKeys &&
-            (key.startsWith("heal", ignoreCase = true) ||
-                key.startsWith("wear", ignoreCase = true))
+            key.startsWith("heal", ignoreCase = true)
     }
     .forEach { key ->
         logger.warn("local.properties: unknown key '$key' is ignored, default used instead.")
@@ -51,9 +45,9 @@ localProperties.keys
 
 
 /**
- * Wear Engine checks the APK signature against the fingerprint registered in AppGallery
- * Connect, so the debug keystore is rejected. Put the registered keystore's details in
- * keystore.properties (git ignores it) and both build types are signed with it.
+ * The login-free SDK checks the APK signature against the SHA-256 fingerprint registered in
+ * AppGallery Connect, so the debug keystore is rejected. Put the registered keystore's
+ * details in keystore.properties (git ignores it) and both build types are signed with it.
  */
 val keystoreProperties = Properties().apply {
     val file = rootProject.file("keystore.properties")
@@ -122,7 +116,7 @@ android {
         buildConfigField(
             "String",
             "HEALTH_KIT_AUTH_METHOD",
-            "\"${secret("healthkit.authMethod", "HEALTH_KIT_AUTH_METHOD", "WEB_OAUTH")}\"",
+            "\"${secret("healthkit.authMethod", "HEALTH_KIT_AUTH_METHOD", "LOGIN_FREE_SDK")}\"",
         )
 
         buildConfigField(
@@ -131,42 +125,17 @@ android {
             "\"${secret("backend.baseUrl", "BACKEND_BASE_URL")}\"",
         )
 
-        buildConfigField(
-            "String",
-            "WEAR_ENGINE_APP_ID",
-            "\"${secret("wearengine.appId", "WEAR_ENGINE_APP_ID")}\"",
-        )
-
-        buildConfigField(
-            "String",
-            "WEAR_LITE_PEER_PACKAGE",
-            "\"${secret("wearengine.lite.peerPackage", "WEAR_LITE_PEER_PACKAGE")}\"",
-        )
-        buildConfigField(
-            "String",
-            "WEAR_LITE_PEER_FINGERPRINT",
-            "\"${secret("wearengine.lite.peerFingerprint", "WEAR_LITE_PEER_FINGERPRINT")}\"",
-        )
-        buildConfigField(
-            "String",
-            "WEAR_SMART_PEER_PACKAGE",
-            "\"${secret("wearengine.smart.peerPackage", "WEAR_SMART_PEER_PACKAGE")}\"",
-        )
-        buildConfigField(
-            "String",
-            "WEAR_SMART_PEER_FINGERPRINT",
-            "\"${secret("wearengine.smart.peerFingerprint", "WEAR_SMART_PEER_FINGERPRINT")}\"",
-        )
-
         manifestPlaceholders["healthKitScheme"] = deepLinkUri.scheme ?: "wearhealthkit"
         manifestPlaceholders["healthKitHost"] = deepLinkUri.host ?: "oauth"
-        manifestPlaceholders["wearEngineAppId"] =
-            secret("wearengine.appId", "WEAR_ENGINE_APP_ID", "your_wearengine_app_id")
+        // HMS app ID for the login-free SDK and Push Kit
+        manifestPlaceholders["hmsAppId"] =
+            secret("healthkit.loginFreeAppId", "HEALTH_KIT_LOGIN_FREE_APP_ID")
+                .ifBlank { secret("healthkit.clientId", "HEALTH_KIT_CLIENT_ID") }
     }
 
     signingConfigs {
         if (releaseSigning != null) {
-            create("wearEngine") {
+            create("registered") {
                 storeFile = releaseSigning
                 storePassword = keystoreProperties.getProperty("storePassword")
                 keyAlias = keystoreProperties.getProperty("keyAlias")
@@ -176,12 +145,12 @@ android {
     }
 
     buildTypes {
-        val wearEngine = signingConfigs.findByName("wearEngine")
+        val registered = signingConfigs.findByName("registered")
         getByName("debug") {
-            if (wearEngine != null) signingConfig = wearEngine
+            if (registered != null) signingConfig = registered
         }
         release {
-            if (wearEngine != null) signingConfig = wearEngine
+            if (registered != null) signingConfig = registered
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
@@ -215,7 +184,6 @@ dependencies {
     implementation(libs.androidx.material3)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.lifecycle.runtime.compose)
-    implementation(libs.huawei.hms.wearengine)
     implementation(libs.androidx.browser)
     implementation(libs.huawei.hms.healthlite)
     implementation(libs.androidx.fragment)

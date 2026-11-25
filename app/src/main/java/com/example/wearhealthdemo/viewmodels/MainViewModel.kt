@@ -2,30 +2,18 @@ package com.example.wearhealthdemo.viewmodels
 
 import android.annotation.SuppressLint
 import android.app.Activity
-import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.huawei.wearengine.device.Device
-import com.example.wearhealthdemo.data.models.DeviceState
-import com.example.wearhealthdemo.data.models.FileState
 import com.example.wearhealthdemo.data.models.HealthKitState
-import com.example.wearhealthdemo.data.models.MessageState
 import com.example.wearhealthdemo.domain.models.UiState
 import com.example.wearhealthdemo.healthkit.AuthorizationOutcome
 import com.example.wearhealthdemo.healthkit.HealthKitAuthMethod
 import com.example.wearhealthdemo.healthkit.HealthKitClient
 import com.example.wearhealthdemo.healthkit.HealthKitConfig
 import com.example.wearhealthdemo.healthkit.auth.LoginFreeStatus
-import com.example.wearhealthdemo.managers.AuthManager
 import com.example.wearhealthdemo.push.WorkoutSubscriptions
-import com.example.wearhealthdemo.managers.DeviceManager
-import com.example.wearhealthdemo.managers.P2pManager
-import com.example.wearhealthdemo.managers.WatchType
-import com.example.wearhealthdemo.managers.WatchMessages
-import com.example.wearhealthdemo.managers.WatchTypeStore
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -34,11 +22,7 @@ import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 
 class MainViewModel(
-    private val authManager: AuthManager,
-    private val deviceManager: DeviceManager,
-    private val p2pManager: P2pManager,
     private val healthKitClient: HealthKitClient,
-    private val watchTypeStore: WatchTypeStore,
     private val workoutSubscriptions: WorkoutSubscriptions,
 ) : ViewModel() {
 
@@ -46,179 +30,21 @@ class MainViewModel(
     val uiState: StateFlow<UiState> = _uiState.asStateFlow()
 
     init {
-        applyWatchType(watchTypeStore.watchType)
-        checkPermissionsAndLoadDevices()
-
         updateHealthKit {
             it.copy(
                 isAuthorized = healthKitClient.isAuthorized,
                 authMethod = healthKitClient.authMethod,
+                tokenItems = healthKitClient.tokenItems(),
             )
         }
-    }
-
-    private fun updateDevice(transform: (DeviceState) -> DeviceState) {
-        _uiState.update { it.copy(deviceState = transform(it.deviceState)) }
-    }
-
-    private fun updateMessage(transform: (MessageState) -> MessageState) {
-        _uiState.update { it.copy(messageState = transform(it.messageState)) }
-    }
-
-    private fun updateFile(transform: (FileState) -> FileState) {
-        _uiState.update { it.copy(fileState = transform(it.fileState)) }
     }
 
     private fun updateHealthKit(transform: (HealthKitState) -> HealthKitState) {
         _uiState.update { it.copy(healthKitState = transform(it.healthKitState)) }
     }
 
-    private fun checkPermissionsAndLoadDevices() {
-        authManager.checkPermissions(object : AuthManager.AuthCheckCallback {
-            override fun onResult(allPermissionsGranted: Boolean) {
-                if (allPermissionsGranted) loadDevices() else requestDevicePermission()
-            }
-
-            override fun onError(e: Exception?) {
-                requestDevicePermission()
-            }
-        })
-    }
-
-    fun requestDevicePermission(onSuccess: Runnable? = null, onCancel: Runnable? = null) {
-        authManager.requestPermission(onSuccess, onCancel)
-    }
-
-    fun selectDevice(device: Device) {
-        updateDevice { it.copy(selectedDevice = device) }
-        registerWatchReceiver(device)
-        addLogMessage("Selected device: ${device.name}")
-    }
-
-    private fun registerWatchReceiver(device: Device) {
-        p2pManager.registerReceiver(device, object : P2pManager.MessageListener {
-            override fun onMessageReceived(message: String?) {
-                message?.let(::handleWatchMessage)
-            }
-
-            override fun onMessageSent(message: String?) = Unit
-        })
-    }
-
-    fun selectWatchType(type: WatchType) {
-        if (type == _uiState.value.deviceState.watchType) return
-        watchTypeStore.watchType = type
-        applyWatchType(type)
-        _uiState.value.deviceState.selectedDevice?.let(::registerWatchReceiver)
-    }
-
-    private fun applyWatchType(type: WatchType) {
-        p2pManager.setPeer(type)
-        updateDevice { it.copy(watchType = type) }
-        addLogMessage(
-            if (type.isConfigured) "Watch type: ${type.label} (${type.peerPackage})"
-            else "Watch type: ${type.label}, peer package or fingerprint is empty in local.properties"
-        )
-    }
-
-    private fun handleWatchMessage(raw: String) {
-        _uiState.update { it.copy(receivedMessages = it.receivedMessages + raw) }
-        addLogMessage("Message from the watch: $raw")
-    }
-
-    fun updateMessageText(text: String) {
-        updateMessage { it.copy(text = text) }
-    }
-
-    fun sendPing() {
-        val selectedDevice = _uiState.value.deviceState.selectedDevice
-        if (selectedDevice == null) {
-            addLogMessage("No device selected for ping")
-            return
-        }
-
-        val peerPackage = _uiState.value.deviceState.watchType.peerPackage
-        p2pManager.pingDevice(selectedDevice, peerPackage, { result ->
-            addLogMessage("Send Ping Result: $result")
-        }, { error ->
-            addLogMessage("Ping failed: ${error.message}")
-        })
-    }
-
-    fun sendMessage(message: String) {
-        val selectedDevice = _uiState.value.deviceState.selectedDevice
-        if (selectedDevice == null) {
-            addLogMessage("No device selected for message")
-            return
-        }
-
-        updateMessage { it.copy(isSending = true) }
-
-        p2pManager.sendMessage(selectedDevice, message, {
-            updateMessage { it.copy(isSending = false, text = "") }
-            addLogMessage("Message sent: $message")
-        }, { error ->
-            updateMessage { it.copy(isSending = false) }
-            Log.d(TAG, "sendMessage failed: ${error.message}", error)
-            addLogMessage("Message failed: ${error.message}")
-        })
-    }
-
-    fun sendFile(context: Context) {
-        val selectedDevice = _uiState.value.deviceState.selectedDevice
-        if (selectedDevice == null) {
-            addLogMessage("Cannot send file: device not selected")
-            return
-        }
-
-        updateFile { it.copy(isSending = true) }
-
-        p2pManager.sendFile(context, selectedDevice, {
-            updateFile { it.copy(isSending = false) }
-            addLogMessage("File sent")
-        }, { error ->
-            updateFile { it.copy(isSending = false) }
-            addLogMessage("File failed: ${error.message}")
-        })
-    }
-
-    fun refreshDevices() {
-        loadDevices()
-    }
-
     fun clearLogs() {
-        _uiState.update { it.copy(receivedMessages = emptyList(), logMessages = emptyList()) }
-    }
-
-    private fun loadDevices() {
-        updateDevice { it.copy(isLoading = true) }
-
-        deviceManager.getBondedDevices({ deviceList ->
-            val devices = deviceList?.filterNotNull() ?: emptyList()
-            updateDevice {
-                it.copy(
-                    devices = devices,
-                    isLoading = false,
-                    permissionsGranted = true,
-                    errorMessage = null,
-                )
-            }
-            addLogMessage(
-                if (devices.isEmpty()) "No bonded devices found"
-                else "Found ${devices.size} bonded devices"
-            )
-        }, { error ->
-            val refused = AuthManager.isPermissionRefused(error)
-            val text = AuthManager.describeError(error)
-            updateDevice {
-                it.copy(
-                    isLoading = false,
-                    permissionsGranted = !refused,
-                    errorMessage = text,
-                )
-            }
-            addLogMessage("Device loading failed: $text")
-        })
+        _uiState.update { it.copy(logMessages = emptyList()) }
     }
 
     @SuppressLint("SimpleDateFormat")
@@ -269,7 +95,12 @@ class MainViewModel(
                     updateHealthKit {
                         it.copy(isAuthorizing = false, isAuthorized = true, errorMessage = null)
                     }
-                    updateHealthKit { it.copy(accountOpenId = healthKitClient.accountOpenId) }
+                    updateHealthKit {
+                        it.copy(
+                            accountOpenId = healthKitClient.accountOpenId,
+                            tokenItems = healthKitClient.tokenItems(),
+                        )
+                    }
                     addLogMessage("Huawei Health account connected")
                     enableWorkoutPush()
                     fetchRecentWorkouts()
@@ -320,6 +151,7 @@ class MainViewModel(
                             errorMessage = fetch.notice,
                             needsPrivacy = fetch.needsPrivacy,
                             accountOpenId = healthKitClient.accountOpenId,
+                            tokenItems = healthKitClient.tokenItems(),
                         )
                     }
                     addLogMessage(
@@ -328,6 +160,30 @@ class MainViewModel(
                 }
                 .onFailure { error ->
                     setHealthKitError("Fetch failed: ${error.message}")
+                }
+        }
+    }
+
+    fun refreshToken() {
+        updateHealthKit { it.copy(isRefreshingToken = true, errorMessage = null) }
+
+        viewModelScope.launch {
+            healthKitClient.refreshAccessToken()
+                .onSuccess {
+                    updateHealthKit {
+                        it.copy(isRefreshingToken = false, tokenItems = healthKitClient.tokenItems())
+                    }
+                    addLogMessage("Access token refreshed")
+                }
+                .onFailure { error ->
+                    updateHealthKit {
+                        it.copy(
+                            isRefreshingToken = false,
+                            isAuthorized = healthKitClient.isAuthorized,
+                            tokenItems = healthKitClient.tokenItems(),
+                        )
+                    }
+                    setHealthKitError("Token refresh failed: ${error.message}")
                 }
         }
     }
@@ -378,26 +234,13 @@ class MainViewModel(
 
     private fun setHealthKitError(message: String) {
         updateHealthKit {
-            it.copy(isAuthorizing = false, isLoadingWorkouts = false, errorMessage = message)
+            it.copy(
+                isAuthorizing = false,
+                isLoadingWorkouts = false,
+                isRefreshingToken = false,
+                errorMessage = message,
+            )
         }
         addLogMessage(message)
-    }
-
-    fun sendAppDestroy(reason: String) {
-        val payload = WatchMessages.appDestroy(reason)
-        val device = _uiState.value.deviceState.selectedDevice ?: run {
-            Log.i(TAG, "no device, would send: $payload")
-            return
-        }
-        p2pManager.sendMessage(
-            device,
-            payload,
-            { Log.i(TAG, "app_destroy sent to the watch") },
-            { error -> Log.w(TAG, "app_destroy could not be sent: ${error.message}") },
-        )
-    }
-
-    private companion object {
-        const val TAG = "MainViewModel"
     }
 }
