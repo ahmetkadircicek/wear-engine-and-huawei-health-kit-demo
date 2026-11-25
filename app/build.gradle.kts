@@ -71,7 +71,9 @@ android {
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.example.wearhealthdemo"
+        // Must match the package registered in AppGallery Connect
+        applicationId = secret("app.applicationId", "APP_APPLICATION_ID")
+            .ifBlank { "com.example.wearhealthdemo" }
         minSdk = 23
         targetSdk = 35
         versionCode = 1

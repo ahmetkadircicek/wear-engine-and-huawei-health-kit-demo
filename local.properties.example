@@ -4,6 +4,10 @@
 # Android SDK location. Android Studio writes this line for you.
 #sdk.dir=/Users/you/Library/Android/sdk
 
+# Package name registered in AppGallery Connect. The login-free SDK checks it together with
+# the signing certificate's SHA-256. Leave empty for com.example.wearhealthdemo.
+app.applicationId=
+
 # Huawei Health Kit Cloud
 # App ID from AppGallery Connect. Used as client_id, as the SDK clientId and, when
 # healthkit.loginFreeAppId is empty, as the HMS app ID in the manifest.
